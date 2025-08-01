@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Navigation } from "@/components/navigation"
 import { Trash2, Edit, Plus, Package } from "lucide-react"
 import {
   Dialog,
@@ -154,6 +155,8 @@ export default function EstoquePage() {
 
   return (
     <div className="min-h-screen bg-orange-50">
+      <Navigation />
+
       <div className="container mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">

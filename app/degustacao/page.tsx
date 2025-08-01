@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Navigation } from "@/components/navigation"
 import {
   Dialog,
   DialogContent,
@@ -106,6 +107,8 @@ export default function DegustacaoPage() {
 
   return (
     <div className="min-h-screen bg-orange-50">
+      <Navigation />
+
       <div className="container mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
