@@ -1,554 +1,135 @@
-"use client"
-
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Navigation } from "@/components/navigation"
-import { Package, Play, History, Star, Plus, Flame } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { TastingDialog } from "@/components/tasting-dialog"
-
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalCharutos: 0,
-    degustacoes: 0,
-    mediaNotas: 0,
-    charutoFavorito: "Nenhum",
-  })
-
-  const [charutosDisponiveis, setCharutosDisponiveis] = useState<any[]>([])
-  const [isAddCharutoDialogOpen, setIsAddCharutoDialogOpen] = useState(false)
-  const [isStartTastingDialogOpen, setIsStartTastingDialogOpen] = useState(false)
-  const [selectedSabores, setSelectedSabores] = useState<string[]>([])
-  const [recomendacoes, setRecomendacoes] = useState<any[]>([])
-  const [selectedCharutoForTasting, setSelectedCharutoForTasting] = useState<any>(null)
-  const [isTastingDialogOpen, setIsTastingDialogOpen] = useState(false)
-
-  // Form data para adicionar charuto
-  const [formData, setFormData] = useState({
-    nome: "",
-    marca: "",
-    paisOrigem: "",
-    preco: 0,
-    quantidade: 1,
-    dataCompra: new Date().toISOString().split("T")[0],
-    foto: "",
-  })
-
-  useEffect(() => {
-    // Carregar estatísticas
-    const estoque = JSON.parse(localStorage.getItem("charutos-estoque") || "[]")
-    const historico = JSON.parse(localStorage.getItem("charutos-historico") || "[]")
-    const degustacao = JSON.parse(localStorage.getItem("charutos-degustacao") || "[]")
-
-    const totalCharutos = estoque.reduce((acc: number, c: any) => acc + c.quantidade, 0)
-    const degustacoes = historico.length
-    const mediaNotas =
-      historico.length > 0
-        ? (historico.reduce((acc: number, c: any) => acc + (c.avaliacao || 0), 0) / historico.length).toFixed(1)
-        : 0
-
-    // Encontrar charuto favorito (maior avaliação)
-    const favorito =
-      historico.length > 0
-        ? historico.reduce((prev: any, current: any) =>
-            (prev.avaliacao || 0) > (current.avaliacao || 0) ? prev : current,
-          )
-        : null
-
-    setStats({
-      totalCharutos,
-      degustacoes,
-      mediaNotas: Number(mediaNotas),
-      charutoFavorito: favorito ? favorito.nome : "Nenhum",
-    })
-
-    // Charutos disponíveis para degustação
-    setCharutosDisponiveis(estoque.filter((c: any) => c.quantidade > 0))
-  }, [])
-
-  const sabores = ["Tabaco", "Pimenta", "Terroso", "Flores", "Café", "Frutas", "Chocolate", "Castanhas", "Madeira"]
-
-  const toggleSabor = (sabor: string) => {
-    setSelectedSabores((prev) => {
-      const newSabores = prev.includes(sabor) ? prev.filter((s) => s !== sabor) : [...prev, sabor]
-
-      // Buscar recomendações quando sabores mudarem
-      if (newSabores.length > 0) {
-        const historico = JSON.parse(localStorage.getItem("charutos-historico") || "[]")
-        const recomendacoesEncontradas = historico
-          .filter(
-            (charuto: any) =>
-              charuto.sabores && charuto.sabores.some((s: string) => newSabores.includes(s)) && charuto.avaliacao >= 7,
-          )
-          .sort((a: any, b: any) => (b.avaliacao || 0) - (a.avaliacao || 0))
-          .slice(0, 3)
-
-        setRecomendacoes(recomendacoesEncontradas)
-      } else {
-        setRecomendacoes([])
-      }
-
-      return newSabores
-    })
-  }
-
-  const handleInputChange = (field: string, value: string | number) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleAddCharuto = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.nome || !formData.marca) {
-      alert("Nome e marca são obrigatórios!")
-      return
-    }
-
-    const novoCharuto = {
-      ...formData,
-      id: Date.now().toString(),
-    }
-
-    const estoque = JSON.parse(localStorage.getItem("charutos-estoque") || "[]")
-    localStorage.setItem("charutos-estoque", JSON.stringify([...estoque, novoCharuto]))
-
-    setFormData({
-      nome: "",
-      marca: "",
-      paisOrigem: "",
-      preco: 0,
-      quantidade: 1,
-      dataCompra: new Date().toISOString().split("T")[0],
-      foto: "",
-    })
-    setIsAddCharutoDialogOpen(false)
-    alert("Charuto adicionado ao estoque!")
-
-    // Recarregar dados
-    window.location.reload()
-  }
-
-  const handleStartTastingFromDashboard = (charuto: any) => {
-    setSelectedCharutoForTasting(charuto)
-    setIsStartTastingDialogOpen(false)
-    setIsTastingDialogOpen(true)
-  }
-
-  const handleStartTasting = (tastingData: any) => {
-    if (!selectedCharutoForTasting) return
-
-    // Reduzir quantidade no estoque
-    const estoque = JSON.parse(localStorage.getItem("charutos-estoque") || "[]")
-    const estoqueAtualizado = estoque.map((c: any) =>
-      c.id === selectedCharutoForTasting.id ? { ...c, quantidade: c.quantidade - 1 } : c,
-    )
-    localStorage.setItem("charutos-estoque", JSON.stringify(estoqueAtualizado))
-
-    // Adicionar à degustação
-    const charutoDegustacao = {
-      id: Date.now().toString(),
-      ...tastingData,
-    }
-
-    const savedTasting = localStorage.getItem("charutos-degustacao")
-    const tastingList = savedTasting ? JSON.parse(savedTasting) : []
-    localStorage.setItem("charutos-degustacao", JSON.stringify([...tastingList, charutoDegustacao]))
-
-    alert("Degustação iniciada!")
-    setSelectedCharutoForTasting(null)
-
-    // Recarregar dados
-    window.location.reload()
-  }
-
   return (
-    <div className="min-h-screen bg-orange-50">
-      <Navigation />
-
-      <div className="container mx-auto px-6 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
           <p className="text-gray-600">Visão geral das suas degustações</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total de Charutos</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.totalCharutos}</p>
-                  <p className="text-xs text-gray-500">Charutos no estoque</p>
-                </div>
-                <Package className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Degustações</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.degustacoes}</p>
-                  <p className="text-xs text-gray-500">Total realizadas</p>
-                </div>
-                <Play className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Média de Notas</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.mediaNotas}</p>
-                  <p className="text-xs text-gray-500">Avaliação média</p>
-                </div>
-                <Star className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Charuto Favorito</p>
-                  <p className="text-xl font-bold text-gray-900">{stats.charutoFavorito}</p>
-                  <p className="text-xs text-gray-500">Melhor avaliado</p>
-                </div>
-                <Flame className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Bem-vindo ao Momentos Charutos */}
-          <Card className="bg-white border-0 shadow-sm">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="text-xl font-semibold text-gray-900">Bem-vindo ao Momentos Charutos</CardTitle>
-              <CardDescription className="text-gray-600">
-                Seu aplicativo para gerenciar e avaliar degustações de charutos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <Link href="/estoque">
-                  <div className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                    <Package className="h-5 w-5 text-orange-500 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Gerencie seu Estoque</p>
-                      <p className="text-sm text-gray-600">Adicione e organize seus charutos</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/degustacao">
-                  <div className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                    <Play className="h-5 w-5 text-orange-500 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Avalie Degustações</p>
-                      <p className="text-sm text-gray-600">Registre suas experiências detalhadamente</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/historico">
-                  <div className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                    <History className="h-5 w-5 text-orange-500 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Acompanhe o Histórico</p>
-                      <p className="text-sm text-gray-600">Revise suas avaliações anteriores</p>
-                    </div>
-                  </div>
-                </Link>
-
-                {/* Botões de Ação Rápida */}
-                <div className="pt-4 border-t border-gray-100">
-                  <p className="text-sm font-medium text-gray-700 mb-3">Ações Rápidas</p>
-                  <div className="flex gap-3">
-                    <Button
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-                      onClick={() => setIsAddCharutoDialogOpen(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar ao Estoque
-                    </Button>
-                    <Button
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                      onClick={() => setIsStartTastingDialogOpen(true)}
-                    >
-                      <Flame className="w-4 h-4 mr-2" />
-                      Iniciar Degustação
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Sistema de Recomendação */}
-          <Card className="bg-white border-0 shadow-sm">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="text-xl font-semibold text-gray-900">Sistema de Recomendação</CardTitle>
-              <CardDescription className="text-gray-600">
-                Selecione sabores para ver recomendações baseadas no seu histórico
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-3 block">Sabores Desejados</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {sabores.map((sabor) => (
-                      <Button
-                        key={sabor}
-                        variant={selectedSabores.includes(sabor) ? "default" : "outline"}
-                        className={`h-10 text-xs ${
-                          selectedSabores.includes(sabor)
-                            ? "bg-orange-500 hover:bg-orange-600 text-white"
-                            : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
-                        }`}
-                        onClick={() => toggleSabor(sabor)}
-                      >
-                        {sabor}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {recomendacoes.length > 0 && (
-                  <div className="pt-4 border-t border-gray-100">
-                    <p className="text-sm font-medium text-gray-700 mb-3">Recomendações Baseadas no Seu Histórico</p>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {recomendacoes.map((charuto) => (
-                        <div
-                          key={charuto.id}
-                          className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{charuto.nome}</p>
-                            <p className="text-xs text-gray-600">
-                              {charuto.marca} - Avaliação: {charuto.avaliacao}/10
-                            </p>
-                            <p className="text-xs text-green-600">Sabores: {charuto.sabores?.join(", ") || "N/A"}</p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-800">{charuto.avaliacao}/10</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedSabores.length > 0 && recomendacoes.length === 0 && (
-                  <div className="pt-4 border-t border-gray-100">
-                    <p className="text-sm text-gray-500 text-center">
-                      Nenhuma recomendação encontrada para os sabores selecionados. Continue degustando para melhorar as
-                      recomendações!
-                    </p>
-                  </div>
-                )}
-
-                {/* Charutos Disponíveis */}
-                {charutosDisponiveis.length > 0 && (
-                  <div className="pt-4 border-t border-gray-100">
-                    <p className="text-sm font-medium text-gray-700 mb-3">
-                      Charutos Disponíveis ({charutosDisponiveis.length})
-                    </p>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {charutosDisponiveis.slice(0, 3).map((charuto) => (
-                        <div key={charuto.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{charuto.nome}</p>
-                            <p className="text-xs text-gray-600">{charuto.marca}</p>
-                          </div>
-                          <Badge variant="secondary">{charuto.quantidade}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                    {charutosDisponiveis.length > 3 && (
-                      <Link href="/estoque">
-                        <Button variant="ghost" className="w-full mt-2 text-orange-600 hover:text-orange-700">
-                          Ver todos ({charutosDisponiveis.length})
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Dialog para adicionar charuto */}
-      <Dialog open={isAddCharutoDialogOpen} onOpenChange={setIsAddCharutoDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Adicionar Novo Charuto</DialogTitle>
-            <DialogDescription>Preencha as informações do charuto</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAddCharuto} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="nome">Nome *</Label>
-                <Input
-                  id="nome"
-                  value={formData.nome}
-                  onChange={(e) => handleInputChange("nome", e.target.value)}
-                  required
-                />
+                <p className="text-sm text-gray-600 mb-1">Total de Degustações</p>
+                <p className="text-3xl font-bold text-gray-900">0</p>
+                <p className="text-xs text-gray-500">Registradas</p>
               </div>
-              <div>
-                <Label htmlFor="marca">Marca *</Label>
-                <Input
-                  id="marca"
-                  value={formData.marca}
-                  onChange={(e) => handleInputChange("marca", e.target.value)}
-                  required
-                />
+              <div className="text-orange-500">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="paisOrigem">País de Origem</Label>
-                <Input
-                  id="paisOrigem"
-                  value={formData.paisOrigem}
-                  onChange={(e) => handleInputChange("paisOrigem", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="dataCompra">Data da Compra</Label>
-                <Input
-                  id="dataCompra"
-                  type="date"
-                  value={formData.dataCompra}
-                  onChange={(e) => handleInputChange("dataCompra", e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="preco">Preço (R$)</Label>
-                <Input
-                  id="preco"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.preco}
-                  onChange={(e) => handleInputChange("preco", Number.parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="quantidade">Quantidade</Label>
-                <Input
-                  id="quantidade"
-                  type="number"
-                  min="0"
-                  value={formData.quantidade}
-                  onChange={(e) => handleInputChange("quantidade", Number.parseInt(e.target.value) || 0)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="foto">Foto do Charuto</Label>
-              <Input
-                id="foto"
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    const reader = new FileReader()
-                    reader.onload = (e) => {
-                      handleInputChange("foto", e.target?.result as string)
-                    }
-                    reader.readAsDataURL(file)
-                  }
-                }}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAddCharutoDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
-                Adicionar Charuto
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para selecionar charuto para degustação */}
-      <Dialog open={isStartTastingDialogOpen} onOpenChange={setIsStartTastingDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Selecionar Charuto para Degustação</DialogTitle>
-            <DialogDescription>Escolha um charuto disponível no seu estoque</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 max-h-60 overflow-y-auto">
-            {charutosDisponiveis.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">Nenhum charuto disponível no estoque</p>
-            ) : (
-              charutosDisponiveis.map((charuto) => (
-                <div
-                  key={charuto.id}
-                  className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleStartTastingFromDashboard(charuto)}
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">{charuto.nome}</p>
-                    <p className="text-sm text-gray-600">{charuto.marca}</p>
-                  </div>
-                  <Badge variant="secondary">{charuto.quantidade}</Badge>
-                </div>
-              ))
-            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsStartTastingDialogOpen(false)}>
-              Cancelar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Dialog de degustação */}
-      <TastingDialog
-        charuto={selectedCharutoForTasting}
-        isOpen={isTastingDialogOpen}
-        onClose={() => setIsTastingDialogOpen(false)}
-        onStartTasting={handleStartTasting}
-      />
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Em Andamento</p>
+                <p className="text-3xl font-bold text-gray-900">0</p>
+                <p className="text-xs text-gray-500">Ativas</p>
+              </div>
+              <div className="text-blue-500">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Avaliação Média</p>
+                <p className="text-3xl font-bold text-gray-900">0.0</p>
+                <p className="text-xs text-gray-500">De 10</p>
+              </div>
+              <div className="text-yellow-500">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Esta Semana</p>
+                <p className="text-3xl font-bold text-gray-900">0</p>
+                <p className="text-xs text-gray-500">Degustações</p>
+              </div>
+              <div className="text-green-500">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-white p-6 rounded-lg border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
+            <div className="space-y-3">
+              <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition-colors">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Nova Degustação</p>
+                    <p className="text-sm text-gray-500">Iniciar uma nova experiência</p>
+                  </div>
+                </div>
+              </button>
+
+              <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Ver Histórico</p>
+                    <p className="text-sm text-gray-500">Revisar degustações anteriores</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Degustações Recentes</h3>
+            <div className="text-center py-8">
+              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-gray-500">Nenhuma degustação registrada ainda</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Welcome Message */}
+        <div className="bg-gradient-to-r from-orange-500 to-amber-600 rounded-lg p-6 text-white">
+          <h3 className="text-xl font-semibold mb-2">Bem-vindo ao Charutos Londrina!</h3>
+          <p className="text-orange-100 mb-4">
+            Comece registrando sua primeira degustação e acompanhe sua jornada no mundo dos charutos.
+          </p>
+          <button className="bg-white text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors">
+            Começar Agora
+          </button>
+        </div>
+      </main>
     </div>
   )
 }
