@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Square, Clock, Flame } from "lucide-react"
+import { Square, Clock, Flame, Play } from "lucide-react"
 
 interface CharutoDegustacao {
   id: string
@@ -39,7 +39,6 @@ export default function DegustacaoPage() {
   const [notas, setNotas] = useState("")
   const [avaliacao, setAvaliacao] = useState<number>(5)
 
-  // Carregar dados do localStorage
   useEffect(() => {
     const savedTasting = localStorage.getItem("charutos-degustacao")
     if (savedTasting) {
@@ -47,7 +46,6 @@ export default function DegustacaoPage() {
     }
   }, [])
 
-  // Salvar no localStorage sempre que charutosDegustacao mudar
   useEffect(() => {
     localStorage.setItem("charutos-degustacao", JSON.stringify(charutosDegustacao))
   }, [charutosDegustacao])
@@ -71,10 +69,8 @@ export default function DegustacaoPage() {
       tempoFumado: Math.floor((new Date().getTime() - new Date(selectedCharuto.dataInicio).getTime()) / (1000 * 60)),
     }
 
-    // Atualizar lista de degustação
     setCharutosDegustacao((prev) => prev.map((c) => (c.id === selectedCharuto.id ? charutoFinalizado : c)))
 
-    // Adicionar ao histórico
     const savedHistory = localStorage.getItem("charutos-historico")
     const historyList = savedHistory ? JSON.parse(savedHistory) : []
     localStorage.setItem("charutos-historico", JSON.stringify([...historyList, charutoFinalizado]))
@@ -109,163 +105,251 @@ export default function DegustacaoPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Degustação de Charutos</h1>
+    <div className="min-h-screen bg-orange-50">
+      <div className="container mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Degustação</h1>
+          <p className="text-gray-600">Acompanhe suas experiências em tempo real</p>
+        </div>
 
-      {/* Charutos em Degustação */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center">
-          <Flame className="w-6 h-6 mr-2 text-orange-500" />
-          Em Degustação ({charutosEmDegustacao.length})
-        </h2>
-
-        {charutosEmDegustacao.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <p className="text-muted-foreground">Nenhum charuto em degustação no momento.</p>
-              <p className="text-sm text-muted-foreground mt-2">Vá para o estoque e inicie uma degustação!</p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Em Degustação</p>
+                  <p className="text-3xl font-bold text-gray-900">{charutosEmDegustacao.length}</p>
+                  <p className="text-xs text-gray-500">Ativos agora</p>
+                </div>
+                <Play className="h-8 w-8 text-orange-500" />
+              </div>
             </CardContent>
           </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {charutosEmDegustacao.map((charuto) => (
-              <Card key={charuto.id} className="border-orange-200 bg-orange-50">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{charuto.nome}</CardTitle>
-                      <CardDescription>{charuto.marca}</CardDescription>
-                    </div>
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {formatarTempo(charuto.dataInicio)}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 mb-4">
-                    {charuto.origem && (
-                      <p>
-                        <strong>Origem:</strong> {charuto.origem}
-                      </p>
-                    )}
-                    {charuto.vitola && (
-                      <p>
-                        <strong>Vitola:</strong> {charuto.vitola}
-                      </p>
-                    )}
-                    <p>
-                      <strong>Iniciado:</strong> {new Date(charuto.dataInicio).toLocaleString("pt-BR")}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button className="flex-1" onClick={() => finalizarDegustacao(charuto)}>
-                      <Square className="w-4 h-4 mr-2" />
-                      Finalizar
-                    </Button>
-                    <Button variant="outline" onClick={() => removerDaDegustacao(charuto.id)}>
-                      Remover
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Charutos Finalizados Recentemente */}
-      {charutosFinalizados.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Finalizados Recentemente</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {charutosFinalizados.slice(0, 6).map((charuto) => (
-              <Card key={charuto.id} className="border-green-200 bg-green-50">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{charuto.nome}</CardTitle>
-                      <CardDescription>{charuto.marca}</CardDescription>
-                    </div>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
-                      ⭐ {charuto.avaliacao}/10
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p>
-                      <strong>Tempo fumado:</strong> {charuto.tempoFumado} min
-                    </p>
-                    <p>
-                      <strong>Finalizado:</strong>{" "}
-                      {charuto.dataFim ? new Date(charuto.dataFim).toLocaleString("pt-BR") : "N/A"}
-                    </p>
-                    {charuto.notas && (
-                      <p>
-                        <strong>Notas:</strong> {charuto.notas.substring(0, 100)}
-                        {charuto.notas.length > 100 ? "..." : ""}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Finalizadas</p>
+                  <p className="text-3xl font-bold text-gray-900">{charutosFinalizados.length}</p>
+                  <p className="text-xs text-gray-500">Hoje</p>
+                </div>
+                <Square className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Tempo Médio</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {charutosFinalizados.length > 0
+                      ? Math.round(
+                          charutosFinalizados.reduce((acc, c) => acc + (c.tempoFumado || 0), 0) /
+                            charutosFinalizados.length,
+                        )
+                      : 0}
+                  </p>
+                  <p className="text-xs text-gray-500">Minutos</p>
+                </div>
+                <Clock className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Avaliação Média</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {charutosFinalizados.length > 0
+                      ? (
+                          charutosFinalizados.reduce((acc, c) => acc + (c.avaliacao || 0), 0) /
+                          charutosFinalizados.length
+                        ).toFixed(1)
+                      : "0.0"}
+                  </p>
+                  <p className="text-xs text-gray-500">De 10</p>
+                </div>
+                <Flame className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
 
-      {/* Dialog para finalizar degustação */}
-      <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Finalizar Degustação</DialogTitle>
-            <DialogDescription>Como foi sua experiência com {selectedCharuto?.nome}?</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="avaliacao">Avaliação (1-10)</Label>
-              <Select value={avaliacao.toString()} onValueChange={(value) => setAvaliacao(Number.parseInt(value))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                    <SelectItem key={num} value={num.toString()}>
-                      {num} -{" "}
-                      {num <= 3
-                        ? "Ruim"
-                        : num <= 5
-                          ? "Regular"
-                          : num <= 7
-                            ? "Bom"
-                            : num <= 9
-                              ? "Muito Bom"
-                              : "Excelente"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Em Degustação */}
+        <Card className="bg-white border-0 shadow-sm mb-8">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
+              <Flame className="w-6 h-6 mr-2 text-orange-500" />
+              Em Degustação ({charutosEmDegustacao.length})
+            </CardTitle>
+            <CardDescription className="text-gray-600">Charutos que você está fumando agora</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            {charutosEmDegustacao.length === 0 ? (
+              <div className="text-center py-12">
+                <Flame className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-2">Nenhum charuto em degustação</p>
+                <p className="text-sm text-gray-500">Vá para o estoque e inicie uma degustação!</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {charutosEmDegustacao.map((charuto) => (
+                  <Card key={charuto.id} className="border-2 border-orange-200 bg-orange-50">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-gray-900">{charuto.nome}</CardTitle>
+                          <CardDescription className="text-gray-600">{charuto.marca}</CardDescription>
+                        </div>
+                        <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatarTempo(charuto.dataInicio)}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2 mb-4">
+                        {charuto.origem && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Origem:</strong> {charuto.origem}
+                          </p>
+                        )}
+                        {charuto.vitola && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Vitola:</strong> {charuto.vitola}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-600">
+                          <strong>Iniciado:</strong> {new Date(charuto.dataInicio).toLocaleString("pt-BR")}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                          onClick={() => finalizarDegustacao(charuto)}
+                        >
+                          <Square className="w-4 h-4 mr-2" />
+                          Finalizar
+                        </Button>
+                        <Button variant="outline" onClick={() => removerDaDegustacao(charuto.id)}>
+                          Remover
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Finalizados Recentemente */}
+        {charutosFinalizados.length > 0 && (
+          <Card className="bg-white border-0 shadow-sm">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="text-xl font-semibold text-gray-900">Finalizados Recentemente</CardTitle>
+              <CardDescription className="text-gray-600">Suas últimas degustações</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {charutosFinalizados.slice(0, 6).map((charuto) => (
+                  <Card key={charuto.id} className="border-2 border-green-200 bg-green-50">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-gray-900">{charuto.nome}</CardTitle>
+                          <CardDescription className="text-gray-600">{charuto.marca}</CardDescription>
+                        </div>
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          ⭐ {charuto.avaliacao}/10
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-600">
+                          <strong>Tempo fumado:</strong> {charuto.tempoFumado} min
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          <strong>Finalizado:</strong>{" "}
+                          {charuto.dataFim ? new Date(charuto.dataFim).toLocaleString("pt-BR") : "N/A"}
+                        </p>
+                        {charuto.notas && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Notas:</strong> {charuto.notas.substring(0, 100)}
+                            {charuto.notas.length > 100 ? "..." : ""}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dialog para finalizar degustação */}
+        <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Finalizar Degustação</DialogTitle>
+              <DialogDescription>Como foi sua experiência com {selectedCharuto?.nome}?</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="avaliacao">Avaliação (1-10)</Label>
+                <Select value={avaliacao.toString()} onValueChange={(value) => setAvaliacao(Number.parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num} -{" "}
+                        {num <= 3
+                          ? "Ruim"
+                          : num <= 5
+                            ? "Regular"
+                            : num <= 7
+                              ? "Bom"
+                              : num <= 9
+                                ? "Muito Bom"
+                                : "Excelente"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="notas">Notas da Degustação</Label>
+                <Textarea
+                  id="notas"
+                  value={notas}
+                  onChange={(e) => setNotas(e.target.value)}
+                  placeholder="Descreva sua experiência: sabores, aromas, construção, queima..."
+                  rows={4}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="notas">Notas da Degustação</Label>
-              <Textarea
-                id="notas"
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                placeholder="Descreva sua experiência: sabores, aromas, construção, queima..."
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsFinishDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleFinalizarDegustacao}>Finalizar Degustação</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsFinishDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleFinalizarDegustacao} className="bg-orange-500 hover:bg-orange-600">
+                Finalizar Degustação
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }
