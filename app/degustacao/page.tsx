@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { TastingDialog } from "@/components/tasting-dialog"
+import { TastingDetailsDialog } from "@/components/tasting-details-dialog"
 
 interface CharutoDegustacao {
   id: string
@@ -52,6 +53,9 @@ export default function DegustacaoPage() {
   const [charutosDisponiveis, setCharutosDisponiveis] = useState<any[]>([])
   const [selectedCharutoForTasting, setSelectedCharutoForTasting] = useState<any>(null)
   const [isTastingDialogOpen, setIsTastingDialogOpen] = useState(false)
+
+  const [selectedCharutoForDetails, setSelectedCharutoForDetails] = useState<any>(null)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
 
   useEffect(() => {
     const savedTasting = localStorage.getItem("charutos-degustacao")
@@ -146,6 +150,11 @@ export default function DegustacaoPage() {
 
     alert("Degustação iniciada!")
     setSelectedCharutoForTasting(null)
+  }
+
+  const viewTastingDetails = (charuto: any) => {
+    setSelectedCharutoForDetails(charuto)
+    setIsDetailsDialogOpen(true)
   }
 
   return (
@@ -258,7 +267,11 @@ export default function DegustacaoPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {charutosEmDegustacao.map((charuto) => (
-                  <Card key={charuto.id} className="border-2 border-orange-200 bg-orange-50">
+                  <Card
+                    key={charuto.id}
+                    className="border-2 border-orange-200 bg-orange-50 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => viewTastingDetails(charuto)}
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div>
@@ -317,7 +330,11 @@ export default function DegustacaoPage() {
             <CardContent className="p-6">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {charutosFinalizados.slice(0, 6).map((charuto) => (
-                  <Card key={charuto.id} className="border-2 border-green-200 bg-green-50">
+                  <Card
+                    key={charuto.id}
+                    className="border-2 border-green-200 bg-green-50 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => viewTastingDetails(charuto)}
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div>
@@ -401,6 +418,13 @@ export default function DegustacaoPage() {
           isOpen={isTastingDialogOpen}
           onClose={() => setIsTastingDialogOpen(false)}
           onStartTasting={handleStartTasting}
+        />
+
+        {/* Dialog de detalhes da degustação */}
+        <TastingDetailsDialog
+          charuto={selectedCharutoForDetails}
+          isOpen={isDetailsDialogOpen}
+          onClose={() => setIsDetailsDialogOpen(false)}
         />
       </div>
     </div>

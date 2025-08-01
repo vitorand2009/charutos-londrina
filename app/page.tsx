@@ -1,135 +1,425 @@
-export default function Dashboard() {
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Navigation } from "@/components/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Edit, Trash2, Search, Star, History, Clock, Award } from "lucide-react"
+import { TastingDetailsDialog } from "@/components/tasting-details-dialog"
+
+interface CharutoHistorico {
+  id: string
+  charuteId: string
+  nome: string
+  marca: string
+  origem: string
+  vitola: string
+  dataInicio: string
+  dataFim?: string
+  status: string
+  notas?: string
+  avaliacao?: number
+  tempoFumado?: number
+}
+
+export default function HistoricoPage() {
+  const [historico, setHistorico] = useState<CharutoHistorico[]>([])
+  const [filteredHistorico, setFilteredHistorico] = useState<CharutoHistorico[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterAvaliacao, setFilterAvaliacao] = useState<string>("all")
+  const [selectedCharuto, setSelectedCharuto] = useState<CharutoHistorico | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editNotas, setEditNotas] = useState("")
+  const [editAvaliacao, setEditAvaliacao] = useState<number>(5)
+  const [selectedCharutoForDetails, setSelectedCharutoForDetails] = useState<any>(null)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+
+  useEffect(() => {
+    const savedHistory = localStorage.getItem("charutos-historico")
+    if (savedHistory) {
+      const historyData = JSON.parse(savedHistory)
+      setHistorico(historyData)
+      setFilteredHistorico(historyData)
+    }
+  }, [])
+
+  useEffect(() => {
+    let filtered = historico
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (charuto) =>
+          charuto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          charuto.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          charuto.origem?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          charuto.notas?.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    }
+
+    if (filterAvaliacao !== "all") {
+      const avaliacaoNum = Number.parseInt(filterAvaliacao)
+      filtered = filtered.filter((charuto) => charuto.avaliacao === avaliacaoNum)
+    }
+
+    filtered.sort(
+      (a, b) => new Date(b.dataFim || b.dataInicio).getTime() - new Date(a.dataFim || a.dataInicio).getTime(),
+    )
+
+    setFilteredHistorico(filtered)
+  }, [historico, searchTerm, filterAvaliacao])
+
+  const handleEdit = (charuto: CharutoHistorico) => {
+    setSelectedCharuto(charuto)
+    setEditNotas(charuto.notas || "")
+    setEditAvaliacao(charuto.avaliacao || 5)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveEdit = () => {
+    if (!selectedCharuto) return
+
+    const updatedCharuto = {
+      ...selectedCharuto,
+      notas: editNotas,
+      avaliacao: editAvaliacao,
+    }
+
+    const updatedHistorico = historico.map((c) => (c.id === selectedCharuto.id ? updatedCharuto : c))
+    setHistorico(updatedHistorico)
+    localStorage.setItem("charutos-historico", JSON.stringify(updatedHistorico))
+
+    const savedTasting = localStorage.getItem("charutos-degustacao")
+    if (savedTasting) {
+      const tastingList = JSON.parse(savedTasting)
+      const updatedTasting = tastingList.map((c: CharutoHistorico) =>
+        c.id === selectedCharuto.id ? updatedCharuto : c,
+      )
+      localStorage.setItem("charutos-degustacao", JSON.stringify(updatedTasting))
+    }
+
+    setIsEditDialogOpen(false)
+    setSelectedCharuto(null)
+  }
+
+  const handleDelete = (id: string) => {
+    if (confirm("Tem certeza que deseja excluir este registro do histórico?")) {
+      const updatedHistorico = historico.filter((c) => c.id !== id)
+      setHistorico(updatedHistorico)
+      localStorage.setItem("charutos-historico", JSON.stringify(updatedHistorico))
+    }
+  }
+
+  const getAvaliacaoColor = (avaliacao?: number) => {
+    if (!avaliacao) return "bg-gray-100 text-gray-800"
+    if (avaliacao <= 3) return "bg-red-100 text-red-800"
+    if (avaliacao <= 5) return "bg-yellow-100 text-yellow-800"
+    if (avaliacao <= 7) return "bg-blue-100 text-blue-800"
+    if (avaliacao <= 9) return "bg-green-100 text-green-800"
+    return "bg-purple-100 text-purple-800"
+  }
+
+  const getAvaliacaoText = (avaliacao?: number) => {
+    if (!avaliacao) return "N/A"
+    if (avaliacao <= 3) return "Ruim"
+    if (avaliacao <= 5) return "Regular"
+    if (avaliacao <= 7) return "Bom"
+    if (avaliacao <= 9) return "Muito Bom"
+    return "Excelente"
+  }
+
+  const tempoMedio =
+    historico.length > 0
+      ? Math.round(historico.reduce((acc, c) => acc + (c.tempoFumado || 0), 0) / historico.length)
+      : 0
+
+  const avaliacaoMedia =
+    historico.length > 0
+      ? (historico.reduce((acc, c) => acc + (c.avaliacao || 0), 0) / historico.length).toFixed(1)
+      : "0.0"
+
+  const viewTastingDetails = (charuto: any) => {
+    setSelectedCharutoForDetails(charuto)
+    setIsDetailsDialogOpen(true)
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-orange-50">
+      <Navigation />
+
+      <div className="container mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Visão geral das suas degustações</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Histórico</h1>
+          <p className="text-gray-600">Revise suas avaliações anteriores</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total de Degustações</p>
-                <p className="text-3xl font-bold text-gray-900">0</p>
-                <p className="text-xs text-gray-500">Registradas</p>
-              </div>
-              <div className="text-orange-500">
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Em Andamento</p>
-                <p className="text-3xl font-bold text-gray-900">0</p>
-                <p className="text-xs text-gray-500">Ativas</p>
-              </div>
-              <div className="text-blue-500">
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Avaliação Média</p>
-                <p className="text-3xl font-bold text-gray-900">0.0</p>
-                <p className="text-xs text-gray-500">De 10</p>
-              </div>
-              <div className="text-yellow-500">
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Esta Semana</p>
-                <p className="text-3xl font-bold text-gray-900">0</p>
-                <p className="text-xs text-gray-500">Degustações</p>
-              </div>
-              <div className="text-green-500">
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
-            <div className="space-y-3">
-              <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition-colors">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Nova Degustação</p>
-                    <p className="text-sm text-gray-500">Iniciar uma nova experiência</p>
-                  </div>
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total de Degustações</p>
+                  <p className="text-3xl font-bold text-gray-900">{historico.length}</p>
+                  <p className="text-xs text-gray-500">Registradas</p>
                 </div>
-              </button>
-
-              <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Ver Histórico</p>
-                    <p className="text-sm text-gray-500">Revisar degustações anteriores</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Degustações Recentes</h3>
-            <div className="text-center py-8">
-              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <History className="h-8 w-8 text-orange-500" />
               </div>
-              <p className="text-gray-500">Nenhuma degustação registrada ainda</p>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Tempo Médio</p>
+                  <p className="text-3xl font-bold text-gray-900">{tempoMedio}</p>
+                  <p className="text-xs text-gray-500">Minutos</p>
+                </div>
+                <Clock className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Avaliação Média</p>
+                  <p className="text-3xl font-bold text-gray-900">{avaliacaoMedia}</p>
+                  <p className="text-xs text-gray-500">De 10</p>
+                </div>
+                <Award className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Melhor Avaliação</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {historico.length > 0 ? Math.max(...historico.map((c) => c.avaliacao || 0)) : 0}
+                  </p>
+                  <p className="text-xs text-gray-500">Pontos</p>
+                </div>
+                <Star className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Welcome Message */}
-        <div className="bg-gradient-to-r from-orange-500 to-amber-600 rounded-lg p-6 text-white">
-          <h3 className="text-xl font-semibold mb-2">Bem-vindo ao Charutos Londrina!</h3>
-          <p className="text-orange-100 mb-4">
-            Comece registrando sua primeira degustação e acompanhe sua jornada no mundo dos charutos.
-          </p>
-          <button className="bg-white text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors">
-            Começar Agora
-          </button>
-        </div>
-      </main>
+        {/* Filtros */}
+        <Card className="bg-white border-0 shadow-sm mb-8">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-xl font-semibold text-gray-900">Filtros</CardTitle>
+            <CardDescription className="text-gray-600">Encontre degustações específicas</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="flex gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="search">Buscar</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search"
+                    placeholder="Buscar por nome, marca, origem ou notas..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="min-w-[150px]">
+                <Label htmlFor="filter-avaliacao">Filtrar por Avaliação</Label>
+                <Select value={filterAvaliacao} onValueChange={setFilterAvaliacao}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="10">10 - Excelente</SelectItem>
+                    <SelectItem value="9">9 - Muito Bom</SelectItem>
+                    <SelectItem value="8">8 - Muito Bom</SelectItem>
+                    <SelectItem value="7">7 - Bom</SelectItem>
+                    <SelectItem value="6">6 - Bom</SelectItem>
+                    <SelectItem value="5">5 - Regular</SelectItem>
+                    <SelectItem value="4">4 - Regular</SelectItem>
+                    <SelectItem value="3">3 - Ruim</SelectItem>
+                    <SelectItem value="2">2 - Ruim</SelectItem>
+                    <SelectItem value="1">1 - Ruim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lista do Histórico */}
+        <Card className="bg-white border-0 shadow-sm">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-xl font-semibold text-gray-900">
+              Suas Degustações ({filteredHistorico.length})
+            </CardTitle>
+            <CardDescription className="text-gray-600">Histórico completo de experiências</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            {filteredHistorico.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-2">
+                  {historico.length === 0
+                    ? "Nenhuma degustação no histórico ainda"
+                    : "Nenhum resultado encontrado para os filtros aplicados"}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {historico.length === 0
+                    ? "Suas degustações finalizadas aparecerão aqui"
+                    : "Tente ajustar os filtros de busca"}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredHistorico.map((charuto) => (
+                  <Card
+                    key={charuto.id}
+                    className="border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => viewTastingDetails(charuto)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-gray-900">{charuto.nome}</CardTitle>
+                          <CardDescription className="text-gray-600">{charuto.marca}</CardDescription>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(charuto)}>
+                            <Edit className="w-4 h-4 text-gray-500" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(charuto.id)}>
+                            <Trash2 className="w-4 h-4 text-gray-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        {charuto.origem && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Origem:</strong> {charuto.origem}
+                          </p>
+                        )}
+                        {charuto.vitola && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Vitola:</strong> {charuto.vitola}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <strong className="text-sm text-gray-600">Avaliação:</strong>
+                          <Badge className={getAvaliacaoColor(charuto.avaliacao)}>
+                            <Star className="w-3 h-3 mr-1" />
+                            {charuto.avaliacao}/10 - {getAvaliacaoText(charuto.avaliacao)}
+                          </Badge>
+                        </div>
+
+                        {charuto.tempoFumado && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Tempo fumado:</strong> {charuto.tempoFumado} min
+                          </p>
+                        )}
+
+                        <p className="text-sm text-gray-600">
+                          <strong>Data:</strong>{" "}
+                          {charuto.dataFim
+                            ? new Date(charuto.dataFim).toLocaleDateString("pt-BR")
+                            : new Date(charuto.dataInicio).toLocaleDateString("pt-BR")}
+                        </p>
+
+                        {charuto.notas && (
+                          <div>
+                            <strong className="text-sm text-gray-600">Notas:</strong>
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-3">{charuto.notas}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Dialog para editar */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Degustação</DialogTitle>
+              <DialogDescription>Edite as informações da degustação de {selectedCharuto?.nome}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-avaliacao">Avaliação (1-10)</Label>
+                <Select
+                  value={editAvaliacao.toString()}
+                  onValueChange={(value) => setEditAvaliacao(Number.parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num} - {getAvaliacaoText(num)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-notas">Notas da Degustação</Label>
+                <Textarea
+                  id="edit-notas"
+                  value={editNotas}
+                  onChange={(e) => setEditNotas(e.target.value)}
+                  placeholder="Descreva sua experiência: sabores, aromas, construção, queima..."
+                  rows={4}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEdit} className="bg-orange-500 hover:bg-orange-600">
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de detalhes da degustação */}
+        <TastingDetailsDialog
+          charuto={selectedCharutoForDetails}
+          isOpen={isDetailsDialogOpen}
+          onClose={() => setIsDetailsDialogOpen(false)}
+        />
+      </div>
     </div>
   )
 }
