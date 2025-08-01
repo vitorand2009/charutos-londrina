@@ -4,10 +4,9 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Navigation } from "@/components/navigation"
+import { Square, Clock, Flame, Play, Plus } from "lucide-react"
+import { FinishTastingDialog } from "@/components/finish-tasting-dialog"
 import {
   Dialog,
   DialogContent,
@@ -16,21 +15,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Square, Clock, Flame, Play } from "lucide-react"
+import { TastingDialog } from "@/components/tasting-dialog"
 
 interface CharutoDegustacao {
   id: string
   charuteId: string
   nome: string
   marca: string
-  origem: string
-  vitola: string
+  paisOrigem: string
   dataInicio: string
   dataFim?: string
   status: "em-degustacao" | "finalizado"
-  notas?: string
+
+  // Dados da etapa 2 (início da degustação)
+  corte?: string
+  momento?: string
+  fluxo?: string
+
+  // Dados da etapa 3 (finalização)
+  sabores?: string[]
   avaliacao?: number
-  tempoFumado?: number
+  duracaoFumo?: number
+  comprariaNovamente?: string
+  observacoes?: string
+  fotoAnilha?: string
 }
 
 export default function DegustacaoPage() {
@@ -40,11 +48,20 @@ export default function DegustacaoPage() {
   const [notas, setNotas] = useState("")
   const [avaliacao, setAvaliacao] = useState<number>(5)
 
+  const [isStartTastingDialogOpen, setIsStartTastingDialogOpen] = useState(false)
+  const [charutosDisponiveis, setCharutosDisponiveis] = useState<any[]>([])
+  const [selectedCharutoForTasting, setSelectedCharutoForTasting] = useState<any>(null)
+  const [isTastingDialogOpen, setIsTastingDialogOpen] = useState(false)
+
   useEffect(() => {
     const savedTasting = localStorage.getItem("charutos-degustacao")
     if (savedTasting) {
       setCharutosDegustacao(JSON.parse(savedTasting))
     }
+
+    // Carregar charutos disponíveis
+    const estoque = JSON.parse(localStorage.getItem("charutos-estoque") || "[]")
+    setCharutosDisponiveis(estoque.filter((c: any) => c.quantidade > 0))
   }, [])
 
   useEffect(() => {
@@ -58,16 +75,13 @@ export default function DegustacaoPage() {
     setIsFinishDialogOpen(true)
   }
 
-  const handleFinalizarDegustacao = () => {
+  const handleFinalizarDegustacao = (finishData: any) => {
     if (!selectedCharuto) return
 
     const charutoFinalizado: CharutoDegustacao = {
       ...selectedCharuto,
       status: "finalizado",
-      dataFim: new Date().toISOString(),
-      notas,
-      avaliacao,
-      tempoFumado: Math.floor((new Date().getTime() - new Date(selectedCharuto.dataInicio).getTime()) / (1000 * 60)),
+      ...finishData,
     }
 
     setCharutosDegustacao((prev) => prev.map((c) => (c.id === selectedCharuto.id ? charutoFinalizado : c)))
@@ -76,10 +90,7 @@ export default function DegustacaoPage() {
     const historyList = savedHistory ? JSON.parse(savedHistory) : []
     localStorage.setItem("charutos-historico", JSON.stringify([...historyList, charutoFinalizado]))
 
-    setIsFinishDialogOpen(false)
     setSelectedCharuto(null)
-    setNotas("")
-    setAvaliacao(5)
   }
 
   const removerDaDegustacao = (id: string) => {
@@ -103,6 +114,38 @@ export default function DegustacaoPage() {
       const minutos = diffMinutos % 60
       return `${horas}h ${minutos}min`
     }
+  }
+
+  const handleStartTastingFromDegustacao = (charuto: any) => {
+    setSelectedCharutoForTasting(charuto)
+    setIsStartTastingDialogOpen(false)
+    setIsTastingDialogOpen(true)
+  }
+
+  const handleStartTasting = (tastingData: any) => {
+    if (!selectedCharutoForTasting) return
+
+    // Reduzir quantidade no estoque
+    const estoque = JSON.parse(localStorage.getItem("charutos-estoque") || "[]")
+    const estoqueAtualizado = estoque.map((c: any) =>
+      c.id === selectedCharutoForTasting.id ? { ...c, quantidade: c.quantidade - 1 } : c,
+    )
+    localStorage.setItem("charutos-estoque", JSON.stringify(estoqueAtualizado))
+
+    // Adicionar à degustação
+    const charutoDegustacao = {
+      id: Date.now().toString(),
+      ...tastingData,
+    }
+
+    const savedTasting = localStorage.getItem("charutos-degustacao")
+    const tastingList = savedTasting ? JSON.parse(savedTasting) : []
+    const updatedTasting = [...tastingList, charutoDegustacao]
+    localStorage.setItem("charutos-degustacao", JSON.stringify(updatedTasting))
+    setCharutosDegustacao(updatedTasting)
+
+    alert("Degustação iniciada!")
+    setSelectedCharutoForTasting(null)
   }
 
   return (
@@ -152,7 +195,7 @@ export default function DegustacaoPage() {
                   <p className="text-3xl font-bold text-gray-900">
                     {charutosFinalizados.length > 0
                       ? Math.round(
-                          charutosFinalizados.reduce((acc, c) => acc + (c.tempoFumado || 0), 0) /
+                          charutosFinalizados.reduce((acc, c) => acc + (c.duracaoFumo || 0), 0) /
                             charutosFinalizados.length,
                         )
                       : 0}
@@ -188,11 +231,22 @@ export default function DegustacaoPage() {
         {/* Em Degustação */}
         <Card className="bg-white border-0 shadow-sm mb-8">
           <CardHeader className="border-b border-gray-100">
-            <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
-              <Flame className="w-6 h-6 mr-2 text-orange-500" />
-              Em Degustação ({charutosEmDegustacao.length})
-            </CardTitle>
-            <CardDescription className="text-gray-600">Charutos que você está fumando agora</CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
+                  <Flame className="w-6 h-6 mr-2 text-orange-500" />
+                  Em Degustação ({charutosEmDegustacao.length})
+                </CardTitle>
+                <CardDescription className="text-gray-600">Charutos que você está fumando agora</CardDescription>
+              </div>
+              <Button
+                className="bg-green-500 hover:bg-green-600 text-white"
+                onClick={() => setIsStartTastingDialogOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Iniciar Nova Degustação
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-6">
             {charutosEmDegustacao.length === 0 ? (
@@ -219,9 +273,9 @@ export default function DegustacaoPage() {
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="space-y-2 mb-4">
-                        {charuto.origem && (
+                        {charuto.paisOrigem && (
                           <p className="text-sm text-gray-600">
-                            <strong>Origem:</strong> {charuto.origem}
+                            <strong>Origem:</strong> {charuto.paisOrigem}
                           </p>
                         )}
                         {charuto.vitola && (
@@ -278,16 +332,16 @@ export default function DegustacaoPage() {
                     <CardContent className="pt-0">
                       <div className="space-y-2">
                         <p className="text-sm text-gray-600">
-                          <strong>Tempo fumado:</strong> {charuto.tempoFumado} min
+                          <strong>Tempo fumado:</strong> {charuto.duracaoFumo} min
                         </p>
                         <p className="text-sm text-gray-600">
                           <strong>Finalizado:</strong>{" "}
                           {charuto.dataFim ? new Date(charuto.dataFim).toLocaleString("pt-BR") : "N/A"}
                         </p>
-                        {charuto.notas && (
+                        {charuto.observacoes && (
                           <p className="text-sm text-gray-600">
-                            <strong>Notas:</strong> {charuto.notas.substring(0, 100)}
-                            {charuto.notas.length > 100 ? "..." : ""}
+                            <strong>Notas:</strong> {charuto.observacoes.substring(0, 100)}
+                            {charuto.observacoes.length > 100 ? "..." : ""}
                           </p>
                         )}
                       </div>
@@ -300,58 +354,54 @@ export default function DegustacaoPage() {
         )}
 
         {/* Dialog para finalizar degustação */}
-        <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
-          <DialogContent>
+        <FinishTastingDialog
+          charuto={selectedCharuto}
+          isOpen={isFinishDialogOpen}
+          onClose={() => setIsFinishDialogOpen(false)}
+          onFinish={handleFinalizarDegustacao}
+        />
+
+        {/* Dialog para selecionar charuto para degustação */}
+        <Dialog open={isStartTastingDialogOpen} onOpenChange={setIsStartTastingDialogOpen}>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Finalizar Degustação</DialogTitle>
-              <DialogDescription>Como foi sua experiência com {selectedCharuto?.nome}?</DialogDescription>
+              <DialogTitle>Selecionar Charuto para Degustação</DialogTitle>
+              <DialogDescription>Escolha um charuto disponível no seu estoque</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="avaliacao">Avaliação (1-10)</Label>
-                <Select value={avaliacao.toString()} onValueChange={(value) => setAvaliacao(Number.parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                      <SelectItem key={num} value={num.toString()}>
-                        {num} -{" "}
-                        {num <= 3
-                          ? "Ruim"
-                          : num <= 5
-                            ? "Regular"
-                            : num <= 7
-                              ? "Bom"
-                              : num <= 9
-                                ? "Muito Bom"
-                                : "Excelente"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="notas">Notas da Degustação</Label>
-                <Textarea
-                  id="notas"
-                  value={notas}
-                  onChange={(e) => setNotas(e.target.value)}
-                  placeholder="Descreva sua experiência: sabores, aromas, construção, queima..."
-                  rows={4}
-                />
-              </div>
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {charutosDisponiveis.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">Nenhum charuto disponível no estoque</p>
+              ) : (
+                charutosDisponiveis.map((charuto) => (
+                  <div
+                    key={charuto.id}
+                    className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleStartTastingFromDegustacao(charuto)}
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{charuto.nome}</p>
+                      <p className="text-sm text-gray-600">{charuto.marca}</p>
+                    </div>
+                    <Badge variant="secondary">{charuto.quantidade}</Badge>
+                  </div>
+                ))
+              )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsFinishDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsStartTastingDialogOpen(false)}>
                 Cancelar
-              </Button>
-              <Button onClick={handleFinalizarDegustacao} className="bg-orange-500 hover:bg-orange-600">
-                Finalizar Degustação
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Dialog de degustação */}
+        <TastingDialog
+          charuto={selectedCharutoForTasting}
+          isOpen={isTastingDialogOpen}
+          onClose={() => setIsTastingDialogOpen(false)}
+          onStartTasting={handleStartTasting}
+        />
       </div>
     </div>
   )

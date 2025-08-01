@@ -1,5 +1,7 @@
 "use client"
 
+import { DialogTrigger } from "@/components/ui/dialog"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
@@ -7,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Navigation } from "@/components/navigation"
 import { Trash2, Edit, Plus, Package } from "lucide-react"
@@ -18,24 +19,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import { TastingDialog } from "@/components/tasting-dialog"
 
 interface Charuto {
   id: string
   nome: string
   marca: string
-  origem: string
-  vitola: string
-  anel: string
-  comprimento: string
-  wrapper: string
-  binder: string
-  filler: string
+  paisOrigem: string
   preco: number
   quantidade: number
-  observacoes: string
   dataCompra: string
+  foto?: string
 }
 
 export default function EstoquePage() {
@@ -45,18 +40,14 @@ export default function EstoquePage() {
   const [formData, setFormData] = useState<Partial<Charuto>>({
     nome: "",
     marca: "",
-    origem: "",
-    vitola: "",
-    anel: "",
-    comprimento: "",
-    wrapper: "",
-    binder: "",
-    filler: "",
+    paisOrigem: "",
     preco: 0,
     quantidade: 1,
-    observacoes: "",
     dataCompra: new Date().toISOString().split("T")[0],
+    foto: "",
   })
+  const [selectedCharutoForTasting, setSelectedCharutoForTasting] = useState<Charuto | null>(null)
+  const [isTastingDialogOpen, setIsTastingDialogOpen] = useState(false)
 
   useEffect(() => {
     const savedCharutos = localStorage.getItem("charutos-estoque")
@@ -99,17 +90,11 @@ export default function EstoquePage() {
     setFormData({
       nome: "",
       marca: "",
-      origem: "",
-      vitola: "",
-      anel: "",
-      comprimento: "",
-      wrapper: "",
-      binder: "",
-      filler: "",
+      paisOrigem: "",
       preco: 0,
       quantidade: 1,
-      observacoes: "",
       dataCompra: new Date().toISOString().split("T")[0],
+      foto: "",
     })
     setEditingCharuto(null)
     setIsDialogOpen(false)
@@ -133,24 +118,30 @@ export default function EstoquePage() {
       return
     }
 
-    setCharutos((prev) => prev.map((c) => (c.id === charuto.id ? { ...c, quantidade: c.quantidade - 1 } : c)))
+    setSelectedCharutoForTasting(charuto)
+    setIsTastingDialogOpen(true)
+  }
 
+  const handleStartTasting = (tastingData: any) => {
+    if (!selectedCharutoForTasting) return
+
+    // Reduzir quantidade no estoque
+    setCharutos((prev) =>
+      prev.map((c) => (c.id === selectedCharutoForTasting.id ? { ...c, quantidade: c.quantidade - 1 } : c)),
+    )
+
+    // Adicionar à degustação
     const charutoDegustacao = {
       id: Date.now().toString(),
-      charuteId: charuto.id,
-      nome: charuto.nome,
-      marca: charuto.marca,
-      origem: charuto.origem,
-      vitola: charuto.vitola,
-      dataInicio: new Date().toISOString(),
-      status: "em-degustacao",
+      ...tastingData,
     }
 
     const savedTasting = localStorage.getItem("charutos-degustacao")
     const tastingList = savedTasting ? JSON.parse(savedTasting) : []
     localStorage.setItem("charutos-degustacao", JSON.stringify([...tastingList, charutoDegustacao]))
 
-    alert("Charuto movido para degustação!")
+    alert("Degustação iniciada!")
+    setSelectedCharutoForTasting(null)
   }
 
   return (
@@ -240,17 +231,11 @@ export default function EstoquePage() {
                       setFormData({
                         nome: "",
                         marca: "",
-                        origem: "",
-                        vitola: "",
-                        anel: "",
-                        comprimento: "",
-                        wrapper: "",
-                        binder: "",
-                        filler: "",
+                        paisOrigem: "",
                         preco: 0,
                         quantidade: 1,
-                        observacoes: "",
                         dataCompra: new Date().toISOString().split("T")[0],
+                        foto: "",
                       })
                     }}
                   >
@@ -287,75 +272,20 @@ export default function EstoquePage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="origem">Origem</Label>
+                        <Label htmlFor="paisOrigem">País de Origem</Label>
                         <Input
-                          id="origem"
-                          value={formData.origem || ""}
-                          onChange={(e) => handleInputChange("origem", e.target.value)}
+                          id="paisOrigem"
+                          value={formData.paisOrigem || ""}
+                          onChange={(e) => handleInputChange("paisOrigem", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="vitola">Vitola</Label>
+                        <Label htmlFor="dataCompra">Data da Compra</Label>
                         <Input
-                          id="vitola"
-                          value={formData.vitola || ""}
-                          onChange={(e) => handleInputChange("vitola", e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="anel">Anel</Label>
-                        <Input
-                          id="anel"
-                          value={formData.anel || ""}
-                          onChange={(e) => handleInputChange("anel", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="comprimento">Comprimento</Label>
-                        <Input
-                          id="comprimento"
-                          value={formData.comprimento || ""}
-                          onChange={(e) => handleInputChange("comprimento", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="quantidade">Quantidade</Label>
-                        <Input
-                          id="quantidade"
-                          type="number"
-                          min="0"
-                          value={formData.quantidade || 0}
-                          onChange={(e) => handleInputChange("quantidade", Number.parseInt(e.target.value) || 0)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="wrapper">Wrapper</Label>
-                        <Input
-                          id="wrapper"
-                          value={formData.wrapper || ""}
-                          onChange={(e) => handleInputChange("wrapper", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="binder">Binder</Label>
-                        <Input
-                          id="binder"
-                          value={formData.binder || ""}
-                          onChange={(e) => handleInputChange("binder", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="filler">Filler</Label>
-                        <Input
-                          id="filler"
-                          value={formData.filler || ""}
-                          onChange={(e) => handleInputChange("filler", e.target.value)}
+                          id="dataCompra"
+                          type="date"
+                          value={formData.dataCompra || ""}
+                          onChange={(e) => handleInputChange("dataCompra", e.target.value)}
                         />
                       </div>
                     </div>
@@ -373,23 +303,33 @@ export default function EstoquePage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="dataCompra">Data da Compra</Label>
+                        <Label htmlFor="quantidade">Quantidade</Label>
                         <Input
-                          id="dataCompra"
-                          type="date"
-                          value={formData.dataCompra || ""}
-                          onChange={(e) => handleInputChange("dataCompra", e.target.value)}
+                          id="quantidade"
+                          type="number"
+                          min="0"
+                          value={formData.quantidade || 0}
+                          onChange={(e) => handleInputChange("quantidade", Number.parseInt(e.target.value) || 0)}
                         />
                       </div>
                     </div>
 
                     <div>
-                      <Label htmlFor="observacoes">Observações</Label>
-                      <Textarea
-                        id="observacoes"
-                        value={formData.observacoes || ""}
-                        onChange={(e) => handleInputChange("observacoes", e.target.value)}
-                        rows={3}
+                      <Label htmlFor="foto">Foto do Charuto</Label>
+                      <Input
+                        id="foto"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            const reader = new FileReader()
+                            reader.onload = (e) => {
+                              handleInputChange("foto", e.target?.result as string)
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
                       />
                     </div>
 
@@ -435,14 +375,9 @@ export default function EstoquePage() {
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="space-y-2 mb-4">
-                        {charuto.origem && (
+                        {charuto.paisOrigem && (
                           <p className="text-sm text-gray-600">
-                            <strong>Origem:</strong> {charuto.origem}
-                          </p>
-                        )}
-                        {charuto.vitola && (
-                          <p className="text-sm text-gray-600">
-                            <strong>Vitola:</strong> {charuto.vitola}
+                            <strong>Origem:</strong> {charuto.paisOrigem}
                           </p>
                         )}
                         <p className="text-sm text-gray-600">
@@ -470,6 +405,12 @@ export default function EstoquePage() {
           </CardContent>
         </Card>
       </div>
+      <TastingDialog
+        charuto={selectedCharutoForTasting}
+        isOpen={isTastingDialogOpen}
+        onClose={() => setIsTastingDialogOpen(false)}
+        onStartTasting={handleStartTasting}
+      />
     </div>
   )
 }
